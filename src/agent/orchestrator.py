@@ -301,7 +301,16 @@ class AgentOrchestrator:
                     "message": f"Starting {agent.agent_name} analysis...",
                 })
 
-            result: StageResult = agent.run(ctx, progress_callback=progress_callback)
+            remaining_timeout_s = (
+                max(0.0, timeout_s - elapsed_s)
+                if timeout_s
+                else None
+            )
+            result: StageResult = agent.run(
+                ctx,
+                progress_callback=progress_callback,
+                timeout_seconds=remaining_timeout_s,
+            )
             stats.record_stage(result)
             all_tool_calls.extend(
                 tc for tc in (result.meta.get("tool_calls_log") or [])
