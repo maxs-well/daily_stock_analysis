@@ -442,6 +442,66 @@ class TestBuiltinToolDefinitions(unittest.TestCase):
         self.assertFalse(payload["supported"])
         self.assertIn("not available", payload["info"])
 
+    def test_skill_backtest_tool_requires_skill_id(self):
+        from src.agent.tools.backtest_tools import (
+            _handle_get_skill_backtest_summary,
+            get_skill_backtest_summary_tool,
+        )
+
+        payload = _handle_get_skill_backtest_summary(skill_id="")
+        schema = get_skill_backtest_summary_tool.to_openai_tool()["function"]["parameters"]
+
+        self.assertEqual(
+            payload,
+            {
+                "supported": False,
+                "error": "skill_id is required. Use get_strategy_backtest_summary for overall metrics.",
+            },
+        )
+        self.assertIn("skill_id", schema["required"])
+
+    def test_skill_backtest_tool_success_payload_keeps_normalized_metrics_and_pct_aliases(self):
+        from src.agent.tools.backtest_tools import _handle_get_skill_backtest_summary
+
+        svc = MagicMock()
+        svc.get_skill_summary.return_value = {
+            "scope": "skill",
+            "eval_window_days": 20,
+            "total_evaluations": 7,
+            "completed_count": 6,
+            "win_rate": 0.64,
+            "direction_accuracy": 0.71,
+            "avg_return": 0.083,
+            "win_rate_pct": 64.0,
+            "direction_accuracy_pct": 71.0,
+            "avg_stock_return_pct": 6.8,
+            "avg_simulated_return_pct": 8.3,
+            "computed_at": "2026-03-20T07:00:00+00:00",
+        }
+
+        with patch("src.agent.tools.backtest_tools._get_backtest_service", return_value=svc):
+            payload = _handle_get_skill_backtest_summary(skill_id="bull_trend", eval_window_days=20)
+
+        self.assertEqual(
+            payload,
+            {
+                "scope": "skill",
+                "skill_id": "bull_trend",
+                "supported": True,
+                "eval_window_days": 20,
+                "total_evaluations": 7,
+                "completed_count": 6,
+                "win_rate": 0.64,
+                "direction_accuracy": 0.71,
+                "avg_return": 0.083,
+                "win_rate_pct": 64.0,
+                "direction_accuracy_pct": 71.0,
+                "avg_stock_return_pct": 6.8,
+                "avg_simulated_return_pct": 8.3,
+                "computed_at": "2026-03-20T07:00:00+00:00",
+            },
+        )
+
     def test_backtest_tool_errors_do_not_expose_raw_exception_text(self):
         from src.agent.tools.backtest_tools import _handle_get_skill_backtest_summary, _handle_get_stock_backtest_summary
 

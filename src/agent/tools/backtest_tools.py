@@ -64,7 +64,10 @@ def _handle_get_overall_backtest_summary(eval_window_days: int = 30) -> dict:
 def _handle_get_skill_backtest_summary(skill_id: str = "", eval_window_days: int = 30) -> dict:
     """Get a skill-scoped backtest summary when real per-skill stats exist."""
     if not skill_id:
-        return _handle_get_overall_backtest_summary(eval_window_days=eval_window_days)
+        return {
+            "supported": False,
+            "error": "skill_id is required. Use get_strategy_backtest_summary for overall metrics.",
+        }
 
     try:
         svc = _get_backtest_service()
@@ -79,11 +82,17 @@ def _handle_get_skill_backtest_summary(skill_id: str = "", eval_window_days: int
             "scope": "skill",
             "skill_id": skill_id,
             "supported": True,
-            "eval_window_days": eval_window_days,
+            "eval_window_days": summary.get("eval_window_days", eval_window_days),
             "total_evaluations": summary.get("total_evaluations", 0),
+            "completed_count": summary.get("completed_count", 0),
             "win_rate": summary.get("win_rate"),
             "direction_accuracy": summary.get("direction_accuracy"),
             "avg_return": summary.get("avg_return"),
+            "win_rate_pct": summary.get("win_rate_pct"),
+            "direction_accuracy_pct": summary.get("direction_accuracy_pct"),
+            "avg_stock_return_pct": summary.get("avg_stock_return_pct"),
+            "avg_simulated_return_pct": summary.get("avg_simulated_return_pct"),
+            "computed_at": summary.get("computed_at"),
         }
     except Exception:
         logger.warning("[backtest_tools] get_skill_backtest_summary error", exc_info=True)
@@ -94,16 +103,15 @@ get_skill_backtest_summary_tool = ToolDefinition(
     name="get_skill_backtest_summary",
     description=(
         "Inspect backtest data for a specific skill when skill-scoped stats exist. "
-        "Provide skill_id for a targeted lookup; if omitted, returns the overall backtest summary. "
+        "Provide skill_id for a targeted lookup; use get_strategy_backtest_summary for overall metrics. "
         "When skill-scoped rollups are unavailable, returns an informational response instead of fabricating metrics."
     ),
     parameters=[
         ToolParameter(
             name="skill_id",
             type="string",
-            description="Optional skill identifier, e.g. 'bull_trend'.",
-            required=False,
-            default="",
+            description="Skill identifier, e.g. 'bull_trend'.",
+            required=True,
         ),
         ToolParameter(
             name="eval_window_days",
